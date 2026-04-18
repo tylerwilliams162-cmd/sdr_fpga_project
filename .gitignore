@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+data/*.hdf5
+data/*.sigmf-data
+*.pt
+*.onnx
+*.bit
+*.log
+.env
