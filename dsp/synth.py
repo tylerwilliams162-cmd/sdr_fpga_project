@@ -2,22 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional
 
-def add_awgn(signal: np.ndarray, snr_db: float) -> np.ndarray:
-    """
-    Add complex AWGN to a signal at a specified SNR in dB.
-    
-    signal : complex IQ array, shape (N,)
-    snr_db : desired signal-to-noise ratio in dB
-    returns: noisy complex signal, same shape
-    """
-    signal_power = np.mean(np.abs(signal) ** 2)
-    snr_linear   = 10 ** (snr_db / 10)
-    noise_power  = signal_power / snr_linear
-    # Complex noise: real and imag each get half the noise power
-    noise = (np.sqrt(noise_power / 2) *
-             (np.random.randn(len(signal)) + 1j * np.random.randn(len(signal))))
-    return signal + noise
-
 
 def generate_bpsk(n_symbols: int, sps: int = 8,
                   snr_db: Optional[float] = None) -> np.ndarray:
@@ -35,15 +19,13 @@ def generate_bpsk(n_symbols: int, sps: int = 8,
     bits    = np.random.randint(0, 2, n_symbols)
     symbols = 2 * bits - 1                        # {0,1} → {-1, +1}
     signal  = np.repeat(symbols, sps).astype(complex)
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
     return signal
 
 
 def generate_qpsk(n_symbols: int, sps: int = 8, 
                     snr_db: Optional[float] = None) -> np.ndarray:
     """
-    Quadratic Phase Shift Keying
+    Quadrature Phase Shift Keying
 
     Maps symbols to 45, 135, 225, 315 degrees.
     Symbols carry two bits each.
@@ -55,8 +37,6 @@ def generate_qpsk(n_symbols: int, sps: int = 8,
     Q = (2 * bits[:,1] - 1) / np.sqrt(2)
     symbols = I + 1j * Q
     signal = np.repeat(symbols, sps)
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_8psk(n_symbols: int, sps: int = 8,
@@ -73,8 +53,6 @@ def generate_8psk(n_symbols: int, sps: int = 8,
     angles = 2*np.pi * indices / 8
     symbols = np.exp(1j*angles)
     signal = np.repeat(symbols, sps)
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_qam(n_symbols: int, order: int = 16, sps: int = 8, 
@@ -94,8 +72,6 @@ def generate_qam(n_symbols: int, order: int = 16, sps: int = 8,
     #normalized to unit average power
     symbols /= np.sqrt(np.mean(np.abs(symbols) ** 2))
     signal = np.repeat(symbols, sps)
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_fm(n_samples: int, fs: float = 48000.0, 
@@ -118,8 +94,6 @@ def generate_fm(n_samples: int, fs: float = 48000.0,
     message /= np.max(np.abs(message)) #Normalized to [-1, 1]
     phase = 2 * np.pi * kf * np.cumsum(message) / fs
     signal = np.exp(1j * (2 * np.pi * fc * t + phase))
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_fsk(n_symbols: int, fs: float = 48000.0,
@@ -140,7 +114,64 @@ def generate_fsk(n_symbols: int, fs: float = 48000.0,
     freq_samples = np.repeat(freqs, sps).astype(float)
     phase   = 2 * np.pi * np.cumsum(freq_samples) / fs
     signal  = np.exp(1j * phase)
-    if snr_db is not None:
-        signal = add_awgn(signal, snr_db)
+    return signal
+
+
+
+###Impairments###
+
+def freq_offset(signal: np.ndarray, fs: float, offset_hz: float) -> np.ndarray:
+    '''Adds frequency off set to input signal'''
+    t = np.arange(len(signal)) / fs
+    phasor = np.exp(1j * 2 * np.pi * offset_hz * t)
+    return signal * phasor
+
+def phase_noise(signal: np.ndarray, phase_std_rad: float = 0.05) -> np.ndarray:
+    '''Adds random phase perturbation for each sample'''
+    p_noise = np.cumsum(np.random.randn(len(signal)) * phase_std_rad)
+    return signal * np.exp(1j * p_noise)
+
+
+def add_iq_imbalance(signal: np.ndarray, amplitude_imbalance_db: float = 1.0, 
+                 phase_imbalance_deg: float = 2.0) -> np.ndarray:
+    """
+    Adds IQ imbalance to signal.
+    alpha is the amplitude imbalance
+    phi is the phase imbalance
+    """
+    alpha = 10 ** (amplitude_imbalance_db / 20)
+    phi = np.deg2rad(phase_imbalance_deg)
+    I_out = signal.real * alpha
+    Q_out = alpha * np.sin(phi) * signal.real + np.cos(phi) * signal.imag
+    return I_out + 1j * Q_out
+
+def add_awgn(signal: np.ndarray, snr_db: float) -> np.ndarray:
+    """
+    Add complex AWGN to a signal at a specified SNR in dB.
+    
+    signal : complex IQ array, shape (N,)
+    snr_db : desired signal-to-noise ratio in dB
+    returns: noisy complex signal, same shape
+    """
+    signal_power = np.mean(np.abs(signal) ** 2)
+    snr_linear   = 10 ** (snr_db / 10)
+    noise_power  = signal_power / snr_linear
+    # Complex noise: real and imag each get half the noise power
+    noise = (np.sqrt(noise_power / 2) *
+             (np.random.randn(len(signal)) + 1j * np.random.randn(len(signal))))
+    return signal + noise
+
+def add_impairments(signal: np.ndarray, fs: float, snr_db: float = 20.0,
+                    offset_hz: float = 0.0, 
+                    phase_noise_std: float = 0.0,
+                    iq_imbalance: bool = False) -> np.ndarray:
+    '''Adds any or all impairments in one call'''
+    if offset_hz != 0:
+        signal = freq_offset(signal, fs, offset_hz)
+    if phase_noise_std > 0:
+        signal = phase_noise(signal, phase_noise_std)
+    if iq_imbalance:
+        signal = add_iq_imbalance(signal)
+    signal = add_awgn(signal, snr_db)
     return signal
 
