@@ -92,12 +92,3 @@ class SyntheticData(DataSource):
 
             return iq, labels, snrs
         
-
-ds = SyntheticData()
-iq, labels, snrs = ds.get_frame(n_frames=32, frame_len=256, snr_db=20)
-
-print(f"IQ shape:     {iq.shape}")      # (32, 2, 256)
-print(f"Labels shape: {labels.shape}")  # (32,)
-print(f"SNRs shape:   {snrs.shape}")    # (32,)
-print(f"Label range:  {labels.min()} – {labels.max()}")  # 0–6
-print(f"IQ dtype:     {iq.dtype}")      # float32

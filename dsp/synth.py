@@ -19,6 +19,8 @@ def generate_bpsk(n_symbols: int, sps: int = 8,
     bits    = np.random.randint(0, 2, n_symbols)
     symbols = 2 * bits - 1                        # {0,1} → {-1, +1}
     signal  = np.repeat(symbols, sps).astype(complex)
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 
@@ -37,6 +39,8 @@ def generate_qpsk(n_symbols: int, sps: int = 8,
     Q = (2 * bits[:,1] - 1) / np.sqrt(2)
     symbols = I + 1j * Q
     signal = np.repeat(symbols, sps)
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_8psk(n_symbols: int, sps: int = 8,
@@ -53,6 +57,8 @@ def generate_8psk(n_symbols: int, sps: int = 8,
     angles = 2*np.pi * indices / 8
     symbols = np.exp(1j*angles)
     signal = np.repeat(symbols, sps)
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_qam(n_symbols: int, order: int = 16, sps: int = 8, 
@@ -72,6 +78,8 @@ def generate_qam(n_symbols: int, order: int = 16, sps: int = 8,
     #normalized to unit average power
     symbols /= np.sqrt(np.mean(np.abs(symbols) ** 2))
     signal = np.repeat(symbols, sps)
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_fm(n_samples: int, fs: float = 48000.0, 
@@ -94,6 +102,8 @@ def generate_fm(n_samples: int, fs: float = 48000.0,
     message /= np.max(np.abs(message)) #Normalized to [-1, 1]
     phase = 2 * np.pi * kf * np.cumsum(message) / fs
     signal = np.exp(1j * (2 * np.pi * fc * t + phase))
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 def generate_fsk(n_symbols: int, fs: float = 48000.0,
@@ -114,6 +124,8 @@ def generate_fsk(n_symbols: int, fs: float = 48000.0,
     freq_samples = np.repeat(freqs, sps).astype(float)
     phase   = 2 * np.pi * np.cumsum(freq_samples) / fs
     signal  = np.exp(1j * phase)
+    if snr_db is not None:
+        signal = add_awgn(signal, snr_db)
     return signal
 
 
