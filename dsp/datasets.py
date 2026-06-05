@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import Optional, Tuple
+import sys
+import os
+sys.path.insert(0, os.path.abspath(".."))
 from synth import (generate_bpsk, generate_qpsk, generate_8psk,
                       generate_qam, generate_fm, generate_fsk, 
                       add_impairments)
@@ -36,14 +39,20 @@ class SyntheticData(DataSource):
         self.sps = sps
         self.add_impairments = add_impairments
 
-        self.generators = {"BPSK": lambda n, sps: generate_bpsk(int(n // sps), sps, snr),
-                           "QPSK": lambda n, sps: generate_qpsk(int(n // sps), sps, snr),
-                           "QAM16": lambda n, sps: generate_qam(int(n // sps), 16, sps, snr),
-                           "QAM64": lambda n, sps: generate_qam(int(n // sps), 64, sps, snr),
-                           "8PSK": lambda n, sps: generate_8psk(int(n // sps), sps, snr),
-                           "FM": lambda n, sps: generate_fm(int(n // sps), self.fs, snr),
-                           "FSK": lambda n, sps: generate_fsk(int(n // sps), self.fs, sps, snr)
-                           }
+        self.generators = {
+                            "BPSK": lambda n, snr: generate_bpsk(int(n // self.sps), sps=self.sps, snr_db=snr),
+                            "QPSK": lambda n, snr: generate_qpsk(int(n // self.sps), sps=self.sps, snr_db=snr),
+                            "8PSK": lambda n, snr: generate_8psk(int(n // self.sps), sps=self.sps, snr_db=snr),
+                            "QAM16": lambda n, snr: generate_qam(int(n // self.sps), order=16, sps=self.sps, snr_db=snr),
+                            "QAM64": lambda n, snr: generate_qam(int(n // self.sps), order=64, sps=self.sps, snr_db=snr),
+
+                             # FM is sample‑based, not symbol‑based
+                            "FM": lambda n, snr: generate_fm(n, fs=self.fs, fc=0.0, kf=5000.0, snr_db=snr),
+
+                            # FSK needs keyword args to avoid argument misalignment
+                            "FSK": lambda n, snr: generate_fsk(int(n // self.sps), fs=self.fs, sps=self.sps, snr_db=snr),
+}
+
         
     def get_frame(self,
                   n_frames: int, 
@@ -90,5 +99,5 @@ class SyntheticData(DataSource):
             labels[i]   = label
             snrs[i]      = snr
 
-            return iq, labels, snrs
+        return iq, labels, snrs
         
